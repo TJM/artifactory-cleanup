@@ -29,14 +29,14 @@ class ArtifactoryCleanup(cli.Application):
     _user = cli.SwitchAttr(
         ["--user"],
         help="Login to access to the artifactory",
-        mandatory=True,
+        mandatory=False,
         envname="ARTIFACTORY_USER",
     )
 
     _password = cli.SwitchAttr(
         ["--password"],
         help="Password to access to the artifactory",
-        mandatory=True,
+        mandatory=False,
         envname="ARTIFACTORY_PASSWORD",
     )
 
