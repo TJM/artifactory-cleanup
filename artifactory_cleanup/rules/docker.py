@@ -274,3 +274,37 @@ class delete_docker_image_if_not_contained_in_properties_value(RuleForDocker):
             TC.blockClosed('Checking image {}'.format(image))
 
         return result_docker_images
+
+class delete_docker_image_if_not_value_in_property(RuleForDocker):
+    """ Removes Docker image if the property value is not set"""
+
+    def __init__(self, docker_repo, property_name, property_values):
+        self.property_name = property_name
+        self.property_values = property_values
+
+    def _aql_add_filter(self, aql_query_list):
+        print('Delete docker images that do not have a property {} that matches {}'.format(self.property_name, self.property_values))
+        value_conditions = []
+        for value in self.property_values:
+            value_conditions.append( {"property.value" : {
+                "$ne" : value
+            }})
+        update_dict = {
+            "name": {
+                "$match": 'manifest.json',
+            },
+            "property.key" : {
+                "$eq" : self.property_name
+            },
+            "$and" : value_conditions  
+        }
+        print(update_dict)
+        aql_query_list.append(update_dict)
+        return aql_query_list
+
+    def _filter_result(self, result_artifact):
+        for artifact in result_artifact:
+            artifact['path'], docker_tag = artifact['path'].rsplit('/', 1)
+            artifact['name'] = docker_tag
+
+        return result_artifact
