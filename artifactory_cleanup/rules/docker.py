@@ -244,6 +244,7 @@ class delete_docker_image_if_not_contained_in_properties_value(RuleForDocker):
         return properties_values
 
     def _filter_result(self, result_artifact):
+        test = result_artifact
         images = self.get_docker_images_list(self.docker_repo)
         properties_values = self.get_properties_values(result_artifact)
         result_docker_images = []
@@ -278,33 +279,62 @@ class delete_docker_image_if_not_contained_in_properties_value(RuleForDocker):
 class delete_docker_image_if_not_value_in_property(RuleForDocker):
     """ Removes Docker image if the property value is not set"""
 
-    def __init__(self, docker_repo, property_name, property_values):
+    def __init__(self, docker_repo, property_name, property_values, property_prefix='docker'):
+        self.docker_repo = docker_repo
         self.property_name = property_name
         self.property_values = property_values
+        self.property_prefix = property_prefix
 
-    def _aql_add_filter(self, aql_query_list):
-        print('Delete docker images that do not have a property {} that matches {}'.format(self.property_name, self.property_values))
-        value_conditions = []
-        for value in self.property_values:
-            value_conditions.append( {"property.value" : {
-                "$ne" : value
-            }})
-        update_dict = {
-            "name": {
-                "$match": 'manifest.json',
-            },
-            "property.key" : {
-                "$eq" : self.property_name
-            },
-            "$and" : value_conditions  
-        }
-        print(update_dict)
-        aql_query_list.append(update_dict)
-        return aql_query_list
+    def get_properties_dict(self, result_artifact):
+        properties_dict = defaultdict(dict)
+
+        for artifact in result_artifact:
+            if artifact.get('properties'):
+                properties_with_image = [x for x in artifact['properties'].keys()
+                                         if x.startswith(self.properties_prefix)]
+
+                for i in properties_with_image:
+                    # Create a dictionary with a property key, without a prefix.
+                    # Property = docker.image, prefix = docker. -> key = image
+                    properties_dict[i[len(self.properties_prefix):]].setdefault(artifact['properties'][i], True)
+
+        return properties_dict
+
+    # def _aql_add_filter(self, aql_query_list):
+    #     print('Delete docker images that do not have a property {} that matches {}'.format(self.property_name, self.property_values))
+    #     value_conditions = []
+    #     for value in self.property_values:
+    #         value_conditions.append( {"property.value" : {
+    #             "$ne" : value
+    #         }})
+    #     update_dict = {
+    #         "name": {
+    #             "$match": 'manifest.json',
+    #         },
+    #         "property.key" : {
+    #             "$eq" : self.property_name
+    #         },
+    #         "$and" : value_conditions
+    #     }
+    #     print(update_dict)
+    #     aql_query_list.append(update_dict)
+    #     return aql_query_list
 
     def _filter_result(self, result_artifact):
+        result_docker_images = []
+
         for artifact in result_artifact:
+            properties = artifact.get('properties', {})
+            print(properties)
+        val = properties.get(self.property_name, '')
+        if val in self.property_values:
             artifact['path'], docker_tag = artifact['path'].rsplit('/', 1)
             artifact['name'] = docker_tag
+            result_docker_images.append({
+                'repo': self.docker_repo,
+                'path': artifact['path'],
+                'name': artifact['name'],
+            })
 
-        return result_artifact
+
+        return result_docker_images
