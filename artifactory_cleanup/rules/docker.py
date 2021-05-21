@@ -40,13 +40,8 @@ class RuleForDocker(Rule):
         if docker_repos:
             aql = ArtifactoryPath(self.artifactory_server, session=self.artifactory_session)
             args = ['items.find', {"$or": [{"repo": repo} for repo in docker_repos]}]
-            print('args:')
-            print (*args)
             artifacts_list = aql.aql(*args)
-            print('Length of artifacts_list:')
-            print(len(artifacts_list))
-            print(artifacts_list[:5])
-
+            print('Length of artifacts_list: {}'.format(len(artifacts_list)))
 
             for artifact in new_result:
                 if artifact['size'] == 0:

@@ -204,7 +204,8 @@ class CleanupPolicy(object):
             r = self.artifactory_session.delete(delete_url)
             r.raise_for_status()
         else:
-            print("DEBUG - delete {}".format(artifact_path))
+            if self._debug:
+                print("DEBUG - delete {}".format(artifact_path))
 
 
 def symbols_to_nuget(
