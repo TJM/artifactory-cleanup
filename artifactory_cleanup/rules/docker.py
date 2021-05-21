@@ -47,11 +47,20 @@ class RuleForDocker(Rule):
             print(len(artifacts_list))
             print(artifacts_list[:5])
 
+            images_dict = defaultdict(int)
+            for docker_layer in artifacts_list:
+                images_dict[docker_layer['path']] += docker_layer['size']
 
             for artifact in new_result:
-                if artifact['size'] == 0:
-                    artifact['size'] = sum([docker_layer['size'] for docker_layer in artifacts_list if
-                                        docker_layer['path'] == '{}/{}'.format(artifact['path'], artifact['name'])])
+                image = f"{artifact['path']}/{artifact['name']}"
+                artifact['size'] = images_dict[image]
+
+
+            # for artifact in new_result:
+            #     if artifact['size'] == 0:
+            #         artifact['size'] = sum([docker_layer['size'] for docker_layer in artifacts_list if
+            #                             docker_layer['path'] == '{}/{}'.format(artifact['path'], artifact['name'])])
+
         TC.blockClosed('Finished with _collect_docker_size.')
 
     def filter_result(self, result_artifacts):
