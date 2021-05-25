@@ -40,29 +40,34 @@ class RuleForDocker(Rule):
             artifact['path'], artifact['name'] = artifact['path'].rsplit('/', 1)
 
     def _collect_docker_size(self, new_result):
-        TC.blockOpened('Starting _collect_docker_size.')
+        TC.blockOpened('_collect_docker_size.')
         docker_repos = list(set(x['repo'] for x in new_result))
 
         if docker_repos:
             aql = ArtifactoryPath(self.artifactory_server, session=self.artifactory_session)
             args = ['items.find', {"$or": [{"repo": repo} for repo in docker_repos]}]
+            TC.blockOpened('_collect_docker_size -> GetAllArtifacts')
             artifacts_list = aql.aql(*args)
+            TC.blockClosed('_collect_docker_size -> GetAllArtifacts')
 
+            TC.blockOpened('_collect_docker_size -> Sum up Sizes')
             images_dict = defaultdict(int)
             for docker_layer in artifacts_list:
                 images_dict[docker_layer['path']] += docker_layer['size']
+            TC.blockClosed('_collect_docker_size -> Sum up Sizes')
 
+            TC.blockOpened('_collect_docker_size -> Apply Sizes to Artifacts')
             for artifact in new_result:
                 image = f"{artifact['path']}/{artifact['name']}"
                 artifact['size'] = images_dict[image]
-
+            TC.blockClosed('_collect_docker_size -> Apply Sizes to Artifacts')
 
             # for artifact in new_result:
             #     if artifact['size'] == 0:
             #         artifact['size'] = sum([docker_layer['size'] for docker_layer in artifacts_list if
             #                             docker_layer['path'] == '{}/{}'.format(artifact['path'], artifact['name'])])
 
-        TC.blockClosed('Finished with _collect_docker_size.')
+        TC.blockClosed('_collect_docker_size.')
 
     def filter_result(self, result_artifacts):
         """ Determines the size of deleted images """
@@ -336,7 +341,6 @@ class delete_docker_image_if_value_in_property(RuleForDocker):
             properties = artifact.get('properties', {})
             val = properties.get(self.property_key)
             if val:
-                # print(f'Artifact: {artifact["path"]}/{artifact["name"]} - Branch: {val}')
                 if (val in self.property_values) == self.value_present:
                     self.manifest_to_image(artifact)
                     result_docker_images.append(artifact)
