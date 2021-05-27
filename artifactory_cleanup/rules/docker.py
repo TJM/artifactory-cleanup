@@ -8,6 +8,7 @@ from teamcity.messages import TeamcityServiceMessages
 from artifactory_cleanup.rules.base import Rule
 
 TC = TeamcityServiceMessages()
+docker_repos = defaultdict(lambda: defaultdict(int))
 
 
 class RuleForDocker(Rule):
@@ -41,31 +42,34 @@ class RuleForDocker(Rule):
 
     def _collect_docker_size(self, new_result):
         TC.blockOpened('_collect_docker_size.')
-        docker_repos = list(set(x['repo'] for x in new_result))
 
-        if docker_repos:
+        repos = list(set(x['repo'] for x in new_result))
+        repo_args = []
+
+        for repo in repos:
+            if repo not in docker_repos:
+                repo_args.append({
+                    "repo": repo
+                })
+
+        if repo_args:
             aql = ArtifactoryPath(self.artifactory_server, session=self.artifactory_session)
-            args = ['items.find', {"$or": [{"repo": repo} for repo in docker_repos]}]
+            args = ['items.find', {"$or": repo_args}]
+
             TC.blockOpened('_collect_docker_size -> GetAllArtifacts')
             artifacts_list = aql.aql(*args)
             TC.blockClosed('_collect_docker_size -> GetAllArtifacts')
 
             TC.blockOpened('_collect_docker_size -> Sum up Sizes')
-            images_dict = defaultdict(int)
-            for docker_layer in artifacts_list:
-                images_dict[docker_layer['path']] += docker_layer['size']
+            for layer in artifacts_list:
+                docker_repos[layer['repo']][layer['path']] += layer['size'] 
             TC.blockClosed('_collect_docker_size -> Sum up Sizes')
 
-            TC.blockOpened('_collect_docker_size -> Apply Sizes to Artifacts')
-            for artifact in new_result:
-                image = f"{artifact['path']}/{artifact['name']}"
-                artifact['size'] = images_dict[image]
-            TC.blockClosed('_collect_docker_size -> Apply Sizes to Artifacts')
-
-            # for artifact in new_result:
-            #     if artifact['size'] == 0:
-            #         artifact['size'] = sum([docker_layer['size'] for docker_layer in artifacts_list if
-            #                             docker_layer['path'] == '{}/{}'.format(artifact['path'], artifact['name'])])
+        TC.blockOpened('_collect_docker_size -> Apply Sizes to Artifacts')
+        for artifact in new_result:
+            image = f"{artifact['path']}/{artifact['name']}"
+            artifact['size'] = docker_repos[artifact['repo']][image]
+        TC.blockClosed('_collect_docker_size -> Apply Sizes to Artifacts')
 
         TC.blockClosed('_collect_docker_size.')
 
