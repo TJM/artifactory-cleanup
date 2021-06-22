@@ -133,16 +133,16 @@ class ArtifactoryCleanup(cli.Application):
                     print(cleanup_rule.aql_text)
                     print("*" * 80)
                     artifacts = cleanup_rule.get_artifacts()
-                print("Found {} artifacts".format(len(artifacts)))
+                    print("Found {} artifacts".format(len(artifacts)))
 
                 # Filter
                 with TC.block("Filter results"):
                     artifacts_to_remove = cleanup_rule.filter(artifacts)
-                print(
-                    "Found {} artifacts AFTER filtering".format(
-                        len(artifacts_to_remove)
+                    print(
+                        "Found {} artifacts AFTER filtering".format(
+                            len(artifacts_to_remove)
+                        )
                     )
-                )
 
                 # Delete or debug
                 for artifact in artifacts_to_remove:
