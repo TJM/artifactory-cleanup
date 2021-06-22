@@ -53,23 +53,19 @@ class RuleForDocker(Rule):
                 })
 
         if repo_args:
+            TC.blockOpened('_collect_docker_size -> GetSizeOfAllArtifacts')
             aql = ArtifactoryPath(self.artifactory_server, session=self.artifactory_session)
             args = ['items.find', {"$or": repo_args}]
 
-            TC.blockOpened('_collect_docker_size -> GetAllArtifacts')
             artifacts_list = aql.aql(*args)
-            TC.blockClosed('_collect_docker_size -> GetAllArtifacts')
 
-            TC.blockOpened('_collect_docker_size -> Sum up Sizes')
             for layer in artifacts_list:
-                docker_repos[layer['repo']][layer['path']] += layer['size'] 
-            TC.blockClosed('_collect_docker_size -> Sum up Sizes')
+                docker_repos[layer['repo']][layer['path']] += layer['size']
+            TC.blockClosed('_collect_docker_size -> GetSizeOfAllArtifacts')
 
-        TC.blockOpened('_collect_docker_size -> Apply Sizes to Artifacts')
         for artifact in new_result:
             image = f"{artifact['path']}/{artifact['name']}"
             artifact['size'] = docker_repos[artifact['repo']][image]
-        TC.blockClosed('_collect_docker_size -> Apply Sizes to Artifacts')
 
         TC.blockClosed('_collect_docker_size.')
 
