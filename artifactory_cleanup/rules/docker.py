@@ -303,26 +303,20 @@ class delete_docker_image_if_not_contained_in_properties_value(RuleForDocker):
 class delete_docker_image_if_value_in_property(RuleForDocker):
     """ Removes Docker image if the property value is set or not (value_present)"""
 
-    def __init__(self, property_key, property_values, value_present=True, delete_if_key_not_present=False):
+    def __init__(self, property_key='docker.label.branch', property_values=[], property_values_regexp=None, regexp_flags=[re.IGNORECASE], value_present=True, delete_if_key_not_present=False):
+
         self.property_key = property_key
         self.property_values = property_values
         self.value_present = value_present
         self.delete_if_key_not_present = delete_if_key_not_present
 
-    def get_properties_dict(self, result_artifact):
-        properties_dict = defaultdict(dict)
+        print('property_values_regexp: {}'.format(property_values_regexp))
+        if property_values_regexp:
+            self.property_values_pattern = re.compile(property_values_regexp, *regexp_flags)
+            print('property_values_pattern: {}'.format(self.property_values_pattern))
 
-        for artifact in result_artifact:
-            if artifact.get('properties'):
-                properties_with_image = [x for x in artifact['properties'].keys()
-                                         if x.startswith(self.properties_prefix)]
-
-                for i in properties_with_image:
-                    # Create a dictionary with a property key, without a prefix.
-                    # Property = docker.image, prefix = docker. -> key = image
-                    properties_dict[i[len(self.properties_prefix):]].setdefault(artifact['properties'][i], True)
-
-        return properties_dict
+        else:
+            self.property_values_pattern = None
 
     def _aql_add_filter(self, aql_query_list):
         # TODO: Add this conditionally
@@ -340,10 +334,15 @@ class delete_docker_image_if_value_in_property(RuleForDocker):
         for artifact in result_artifact:
             properties = artifact.get('properties', {})
             val = properties.get(self.property_key)
-            if val:
-                if (val in self.property_values) == self.value_present:
-                    self.manifest_to_image(artifact)
-                    result_docker_images.append(artifact)
+            if val: # the property key was present as the val is not None
+                if self.value_present: # If we want to find the values
+                    if ((val in self.property_values) or (self.property_values_pattern and self.property_values_pattern.match(val))):
+                        self.manifest_to_image(artifact)
+                        result_docker_images.append(artifact)
+                else: # self.value_present is false, we do not want to find the values
+                    if ((not val in self.property_values) and (self.property_values_pattern and not self.property_values_pattern.match(val))):
+                        self.manifest_to_image(artifact)
+                        result_docker_images.append(artifact)
             else:
                 if self.delete_if_key_not_present:
                     self.manifest_to_image(artifact)
