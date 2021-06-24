@@ -2,7 +2,7 @@
 
 ### common - rules that apply to all repositories
 
-| Name | Description | 
+| Name | Description |
 | ---        | ---			 |
 | `delete_older_than_n_days(N)` | Deletes artifacts older than N days    |
 | `without_downloads()` | Deletes only artifacts that have DownloadCount = 0 |
@@ -13,13 +13,14 @@
 
 ### docker - cleanup rules for docker images
 
-| Name | Description | 
+| Name | Description |
 | ---        | ---			 |
 | `delete_images_older_than_n_days(N)` | Removes docker image older than N days |
+| `delete_docker_image_if_value_in_property(several parameters)` | Removes docker images that do or do not contain a specific property with a certain value |
 
 ### filters - rules with different filters
 
-| Name | Description | 
+| Name | Description |
 | ---        | ---			 |
 | `filter_by_path_mask('my/path*')` | All rules apply only to artifacts with a given path pattern |
 | `filter_without_path_mask('master*'), filter_without_path_mask(['release*', 'master*'])` | DOES NOT apply to artifacts containing the given patterns in the PATH (maybe list, str) |

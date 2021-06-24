@@ -11,7 +11,7 @@
   * [Commands](#commands)
   * [Available Rules](#available-rules)
   * [Artifact cleanup policies](#artifactory-cleanup-policies)
-  
+
 <!-- tocstop -->
 
 # Installation
@@ -106,5 +106,17 @@ RULES = [
         rules.exclude_docker_images(['*:latest', '*:release*']),
         rules.delete_docker_images_not_used(days=30),
     ),
+    CleanupPolicy(
+        'Delete all docker iamges that haven not been used for 7 days in docker-registry from a branch other than develop or main, and exclude release tags',
+        rules.repo('docker-registry'),
+        rules.delete_docker_images_not_used(days=7),
+        rules.delete_docker_image_if_value_in_property(
+            property_key = 'docker.label.com.gitlab.ci.tagorbranch' # This is obviously specific to gitlab-ci
+            property_values = ['main', 'develop']
+            property_values_regexp = r'^v?\d+\.\d+\.\d+' # v1.2.3
+            value_present = False
+        )
+
+    )
 ]
 ```
