@@ -22,7 +22,7 @@ RULES = [
             property_key = 'docker.label.branch',
             property_values = ['develop','future-develop','unicorn-develop'],
             property_values_regexp = r'^BUGFIX/RELEASE.+',
-            value_present = False
+            value_present = True
         ),
     ),
     CleanupPolicy(
