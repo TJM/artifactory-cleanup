@@ -32,6 +32,14 @@ class RuleForDocker(Rule):
 
         return content['tags']
 
+    def _manifest_to_image(self, artifact):
+        """
+        Converts an artifact named "manifest.json" to the folder containing it and sets size to 0.
+        """
+        if artifact['name'] == 'manifest.json':
+            artifact['size'] = 0
+            artifact['path'], artifact['name'] = artifact['path'].rsplit('/', 1)
+
     def _collect_docker_size(self, new_result):
         TC.blockOpened('_collect_docker_size.')
         repos = list(set(x['repo'] for x in new_result))
@@ -90,8 +98,7 @@ class delete_docker_images_older_than(RuleForDocker):
 
     def _filter_result(self, result_artifact):
         for artifact in result_artifact:
-            artifact['path'], docker_tag = artifact['path'].rsplit('/', 1)
-            artifact['name'] = docker_tag
+            self._manifest_to_image(artifact)
 
         return result_artifact
 
@@ -122,8 +129,7 @@ class delete_docker_images_not_used(RuleForDocker):
 
     def _filter_result(self, result_artifact):
         for artifact in result_artifact:
-            artifact['path'], docker_tag = artifact['path'].rsplit('/', 1)
-            artifact['name'] = docker_tag
+            self._manifest_to_image(artifact)
 
         return result_artifact
 
@@ -287,5 +293,55 @@ class delete_docker_image_if_not_contained_in_properties_value(RuleForDocker):
                                                  'name': tag,
                                                  })
             TC.blockClosed('Checking image {}'.format(image))
+
+        return result_docker_images
+
+class delete_docker_image_if_value_in_property(RuleForDocker):
+    """ Removes Docker image if the property value is set or not (value_present)"""
+
+    def __init__(self, property_key='docker.label.branch', property_values=[], property_values_regexp=None, regexp_flags=[re.IGNORECASE], value_present=True, delete_if_key_not_present=False):
+
+        self.property_key = property_key
+        self.property_values = property_values
+        self.value_present = value_present
+        self.delete_if_key_not_present = delete_if_key_not_present
+
+        print('property_values_regexp: {}'.format(property_values_regexp))
+        if property_values_regexp:
+            self.property_values_pattern = re.compile(property_values_regexp, *regexp_flags)
+            print('property_values_pattern: {}'.format(self.property_values_pattern))
+
+        else:
+            self.property_values_pattern = None
+
+    def _aql_add_filter(self, aql_query_list):
+        # TODO: Add this conditionally
+        update_dict = {
+            "name": {
+                "$match": 'manifest.json',
+            }
+        }
+        aql_query_list.append(update_dict)
+        return aql_query_list
+
+    def _filter_result(self, result_artifact):
+        result_docker_images = []
+
+        for artifact in result_artifact:
+            properties = artifact.get('properties', {})
+            val = properties.get(self.property_key)
+            if val: # the property key was present as the val is not None
+                if self.value_present: # If we want to find the values
+                    if ((val in self.property_values) or (self.property_values_pattern and self.property_values_pattern.match(val))):
+                        self._manifest_to_image(artifact)
+                        result_docker_images.append(artifact)
+                else: # self.value_present is false, we do not want to find the values
+                    if ((not val in self.property_values) and (self.property_values_pattern and not self.property_values_pattern.match(val))):
+                        self._manifest_to_image(artifact)
+                        result_docker_images.append(artifact)
+            else:
+                if self.delete_if_key_not_present:
+                    self._manifest_to_image(artifact)
+                    result_docker_images.append(artifact)
 
         return result_docker_images
