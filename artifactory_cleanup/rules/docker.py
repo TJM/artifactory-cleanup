@@ -8,6 +8,7 @@ from teamcity.messages import TeamcityServiceMessages
 from artifactory_cleanup.rules.base import Rule
 
 TC = TeamcityServiceMessages()
+docker_repos = defaultdict(lambda: defaultdict(int))
 
 
 class RuleForDocker(Rule):
@@ -32,20 +33,30 @@ class RuleForDocker(Rule):
         return content['tags']
 
     def _collect_docker_size(self, new_result):
-        docker_repos = list(set(x['repo'] for x in new_result))
+        TC.blockOpened('_collect_docker_size.')
+        repos = list(set(x['repo'] for x in new_result))
+        repo_args = []
 
-        if docker_repos:
+        for repo in repos:
+            if repo not in docker_repos:
+                repo_args.append({
+                    "repo": repo
+                })
+
+        if repo_args:
             aql = ArtifactoryPath(self.artifactory_server, session=self.artifactory_session)
-            args = ['items.find', {"$or": [{"repo": repo} for repo in docker_repos]}]
+            args = ['items.find', {"$or": repo_args}]
+
             artifacts_list = aql.aql(*args)
 
-            images_dict = defaultdict(int)
-            for docker_layer in artifacts_list:
-                images_dict[docker_layer['path']] += docker_layer['size']
+            for layer in artifacts_list:
+                docker_repos[layer['repo']][layer['path']] += layer['size']
 
-            for artifact in new_result:
-                image = f"{artifact['path']}/{artifact['name']}"
-                artifact['size'] = images_dict[image]
+        for artifact in new_result:
+            image = f"{artifact['path']}/{artifact['name']}"
+            artifact['size'] = docker_repos[artifact['repo']][image]
+
+        TC.blockClosed('_collect_docker_size.')
 
     def filter_result(self, result_artifacts):
         """ Determines the size of deleted images """
